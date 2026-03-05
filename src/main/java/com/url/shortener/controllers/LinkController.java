@@ -1,14 +1,14 @@
 package com.url.shortener.controllers;
 
-import com.url.shortener.entities.Link;
+
 import com.url.shortener.entities.dto.LinkRequestDto;
 import com.url.shortener.services.LinkService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
 
 import java.net.URI;
-import java.util.Optional;
+
 
 @RestController
 @RequestMapping("/")
@@ -19,16 +19,14 @@ public class LinkController {
     }
 
     @PostMapping("/url")
-    public ResponseEntity<LinkRequestDto> saveLink(@RequestBody LinkRequestDto link){
-        LinkRequestDto res = linkService.save(link);
-        URI uri = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(res.id()).toUri();
-        return ResponseEntity.created(uri).body(res);
+    public ResponseEntity<String> saveLink(@RequestBody LinkRequestDto link){
+        String url = linkService.save(link);
+        return ResponseEntity.created(URI.create(url)).body(url);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Void> redirectLink(@PathVariable Long id){
-        Optional<Link> link = linkService.findById(id);
-        String url = link.get().getOriginalUrl();
-        return ResponseEntity.status(302).location(URI.create(url)).build();
+    @GetMapping("/{code}")
+    public ResponseEntity<String> redirectLink(@PathVariable String code){
+        String res = linkService.findByCode(code);
+        return ResponseEntity.status(302).location(URI.create(res)).build();
     }
 }

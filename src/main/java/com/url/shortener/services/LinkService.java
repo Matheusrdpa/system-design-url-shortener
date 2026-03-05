@@ -3,43 +3,41 @@ package com.url.shortener.services;
 import com.url.shortener.entities.Link;
 import com.url.shortener.entities.dto.LinkRequestDto;
 import com.url.shortener.repositories.LinkRepository;
-import org.springframework.http.ResponseEntity;
+import com.url.shortener.services.Exception.NotFoundException;
 import org.springframework.stereotype.Service;
-
-import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+
 
 @Service
 public class LinkService {
+    private final String base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private LinkRepository linkRepository;
     public LinkService(LinkRepository linkRepository){
         this.linkRepository = linkRepository;
     }
 
-    public LinkRequestDto save(LinkRequestDto linkDto){
+    public String save(LinkRequestDto linkDto){
         Link link = new Link(null, linkDto.originalUrl(), LocalDateTime.now());
-        linkRepository.save(link);
-        return linkDto;
+        Link linkWithId = linkRepository.save(link);
+        Long id = linkWithId.getId();
+        String code = encode(id);
+        linkWithId.setCode(code);
+        linkRepository.save(linkWithId);
+        return "URL Created: " + "http://localhost:8080/" + code;
     }
 
-    public List<Link> findAll(){
-        return linkRepository.findAll();
+    public String findByCode(String code){
+        Link link = linkRepository.findByCode(code).orElseThrow(() -> new NotFoundException("Url not found for this code"));
+        return link.getOriginalUrl();
     }
 
-    public Link update(Long id, Link link){
-        Link newLink = linkRepository.getReferenceById(id);
-        newLink.setCreatedAt(link.getCreatedAt());
-        newLink.setOriginalUrl(link.getOriginalUrl());
-        return linkRepository.save(newLink);
-    }
-
-    public void delete(Long id){
-        linkRepository.deleteById(id);
-    }
-
-    public Optional<Link> findById(Long id){
-        return linkRepository.findById(id);
+    public String encode(long i){
+        StringBuilder code = new StringBuilder();
+        while(i > 0){
+            int remainder = (int) i % 62;
+            code.append(base62.charAt(remainder));
+            i = i / 62;
+        }
+        return code.reverse().toString();
     }
 }

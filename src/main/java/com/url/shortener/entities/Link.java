@@ -11,6 +11,8 @@ public class Link {
     private Long id;
     private String originalUrl;
     private LocalDateTime createdAt;
+    @Column(unique = true)
+    private String code;
 
     public Link(Long id, String originalUrl, LocalDateTime createdAt) {
         this.id = id;
@@ -19,6 +21,14 @@ public class Link {
     }
 
     public Link() {
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
     }
 
     public Long getId() {
