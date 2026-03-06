@@ -17,4 +17,11 @@ public class GlobalHandler {
         ErrorDto dto = new ErrorDto(LocalDateTime.now(), status.value(),ex.getMessage());
         return ResponseEntity.status(status).body(dto);
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorDto> badRequest(IllegalArgumentException ex){
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        ErrorDto dto = new ErrorDto(LocalDateTime.now(), status.value(),ex.getMessage());
+        return ResponseEntity.status(status).body(dto);
+    }
 }

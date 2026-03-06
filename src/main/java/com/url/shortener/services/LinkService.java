@@ -4,40 +4,90 @@ import com.url.shortener.entities.Link;
 import com.url.shortener.entities.dto.LinkRequestDto;
 import com.url.shortener.repositories.LinkRepository;
 import com.url.shortener.services.Exception.NotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import java.time.LocalDateTime;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Service
 public class LinkService {
+    private static final Logger logger = LoggerFactory.getLogger(LinkService.class);
+    private RedisTemplate<String,String> redisTemplate;
     private final String base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private LinkRepository linkRepository;
-    public LinkService(LinkRepository linkRepository){
+    public LinkService(LinkRepository linkRepository,RedisTemplate<String,String> redisTemplate){
         this.linkRepository = linkRepository;
+        this.redisTemplate = redisTemplate;
     }
 
     public String save(LinkRequestDto linkDto){
         Link link = new Link(null, linkDto.originalUrl(), LocalDateTime.now());
+        String url = validateAndNormalizeUrl(link.getOriginalUrl());
+        link.setOriginalUrl(url);
         Link linkWithId = linkRepository.save(link);
         Long id = linkWithId.getId();
         String code = encode(id);
         linkWithId.setCode(code);
         linkRepository.save(linkWithId);
-        return "URL Created: " + "http://localhost:8080/" + code;
+        logger.info("Link saved in db with code {}", code);
+        return "http://localhost:8080/" + code;
     }
 
     public String findByCode(String code){
+        String cacheKey = "short:url:" + code;
+
+        String cachedUrl = redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedUrl != null){
+            logger.info("Cache hit");
+            return cachedUrl;
+        }
+
         Link link = linkRepository.findByCode(code).orElseThrow(() -> new NotFoundException("Url not found for this code"));
-        return link.getOriginalUrl();
+        String originalUrl = link.getOriginalUrl();
+        redisTemplate.opsForValue().set(cacheKey,originalUrl, Duration.ofHours(1));
+        logger.info("Cache miss");
+
+        return originalUrl;
     }
 
     public String encode(long i){
+        logger.info("Enconding id into base62");
         StringBuilder code = new StringBuilder();
         while(i > 0){
             int remainder = (int) i % 62;
             code.append(base62.charAt(remainder));
             i = i / 62;
         }
+        logger.info("finished enconding");
         return code.reverse().toString();
+    }
+
+    public String validateAndNormalizeUrl(String url){
+        if (!url.startsWith("http://") && !url.startsWith("https://")){
+            url = "https://" + url;
+            logger.info("added https in url");
+        }
+        try {
+            URI uri = new URI(url);
+            String scheme = uri.getScheme();
+            if (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https")){
+                throw new IllegalArgumentException("Invalid protocol");
+            }
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                throw new IllegalArgumentException("Invalid host");
+            }
+            logger.info("url normalized");
+            return url;
+
+        }catch (URISyntaxException e){
+            throw new IllegalArgumentException("Invalid url");
+        }
     }
 }

@@ -6,9 +6,7 @@ import com.url.shortener.services.LinkService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 import java.net.URI;
-
 
 @RestController
 @RequestMapping("/")
