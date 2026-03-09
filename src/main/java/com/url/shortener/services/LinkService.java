@@ -6,6 +6,7 @@ import com.url.shortener.repositories.LinkRepository;
 import com.url.shortener.services.Exception.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,8 @@ import java.time.LocalDateTime;
 
 @Service
 public class LinkService {
+    @Value("${awsURL}")
+    private String awsUrl;
     private static final Logger logger = LoggerFactory.getLogger(LinkService.class);
     private RedisTemplate<String,String> redisTemplate;
     private final String base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -35,24 +38,33 @@ public class LinkService {
         linkWithId.setCode(code);
         linkRepository.save(linkWithId);
         logger.info("Link saved in db with code {}", code);
-        return "http://localhost:8080/" + code;
+        return awsUrl + code;
     }
 
     public String findByCode(String code){
         String cacheKey = "short:url:" + code;
+        try{
+            String cachedUrl = redisTemplate.opsForValue().get(cacheKey);
 
-        String cachedUrl = redisTemplate.opsForValue().get(cacheKey);
-
-        if (cachedUrl != null){
-            logger.info("Cache hit");
-            return cachedUrl;
+            if (cachedUrl != null){
+                logger.info("Cache hit");
+                return cachedUrl;
+            }
+        }catch (Exception e){
+            logger.warn("Url not cached,searching on database");
         }
+
 
         Link link = linkRepository.findByCode(code).orElseThrow(() -> new NotFoundException("Url not found for this code"));
         String originalUrl = link.getOriginalUrl();
-        redisTemplate.opsForValue().set(cacheKey,originalUrl, Duration.ofHours(1));
-        logger.info("Cache miss");
 
+        try{
+            redisTemplate.opsForValue().set(cacheKey,originalUrl, Duration.ofHours(1));
+        }catch (Exception e){
+            logger.warn("Redis unavailable");
+        }
+
+        logger.info("Cache miss");
         return originalUrl;
     }
 
