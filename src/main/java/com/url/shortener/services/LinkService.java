@@ -14,6 +14,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class LinkService {
@@ -29,16 +30,22 @@ public class LinkService {
     }
 
     public String save(LinkRequestDto linkDto){
+        Link verifiedLink = linkRepository.findByOriginalUrl(linkDto.originalUrl());
         Link link = new Link(null, linkDto.originalUrl(), LocalDateTime.now());
-        String url = validateAndNormalizeUrl(link.getOriginalUrl());
-        link.setOriginalUrl(url);
-        Link linkWithId = linkRepository.save(link);
-        Long id = linkWithId.getId();
-        String code = encode(id);
-        linkWithId.setCode(code);
-        linkRepository.save(linkWithId);
-        logger.info("Link saved in db with code {}", code);
-        return awsUrl + code;
+        if (verifiedLink == null){
+            String url = validateAndNormalizeUrl(link.getOriginalUrl());
+            link.setOriginalUrl(url);
+            Link linkWithId = linkRepository.save(link);
+            Long id = linkWithId.getId();
+            String code = encode(id);
+            linkWithId.setCode(code);
+            linkRepository.save(linkWithId);
+            logger.info("Link saved in db with code {}", code);
+            return awsUrl + code;
+        }else {
+            logger.info("Link retrieved {}", verifiedLink.getCode());
+            return awsUrl + verifiedLink.getCode();
+        }
     }
 
     public String findByCode(String code){
@@ -53,7 +60,6 @@ public class LinkService {
         }catch (Exception e){
             logger.warn("Url not cached,searching on database");
         }
-
 
         Link link = linkRepository.findByCode(code).orElseThrow(() -> new NotFoundException("Url not found for this code"));
         String originalUrl = link.getOriginalUrl();

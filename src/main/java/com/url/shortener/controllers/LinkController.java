@@ -1,6 +1,5 @@
 package com.url.shortener.controllers;
 
-
 import com.url.shortener.entities.dto.LinkRequestDto;
 import com.url.shortener.services.LinkService;
 import com.url.shortener.services.RateLimitService;
@@ -28,7 +27,7 @@ public class LinkController {
 
     @GetMapping("/{code}")
     public ResponseEntity<String> redirectLink(@PathVariable String code, HttpServletRequest request){
-        String ip = request.getRemoteAddr();
+        String ip = request.getHeader("X-Forwarded-For");
 
         if (!rateLimitService.isAllowed(ip)){
             return ResponseEntity.status(429).build();

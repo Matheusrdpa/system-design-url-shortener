@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface LinkRepository extends JpaRepository<Link,Long> {
     Optional<Link> findByCode(String code);
+    Link findByOriginalUrl(String originalUrl);
 }
