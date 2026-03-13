@@ -14,7 +14,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 public class LinkService {
@@ -30,6 +29,7 @@ public class LinkService {
     }
 
     public String save(LinkRequestDto linkDto){
+        logger.info("creating short link originalUrl={}", linkDto.originalUrl());
         Link verifiedLink = linkRepository.findByOriginalUrl(linkDto.originalUrl());
         Link link = new Link(null, linkDto.originalUrl(), LocalDateTime.now());
         if (verifiedLink == null){
@@ -39,16 +39,17 @@ public class LinkService {
             Long id = linkWithId.getId();
             String code = encode(id);
             linkWithId.setCode(code);
-            linkRepository.save(linkWithId);
-            logger.info("Link saved in db with code {}", code);
+            Link saved = linkRepository.save(linkWithId);
+            logger.info("short link created code={} originalUrl={}",saved.getCode(),saved.getOriginalUrl());
             return awsUrl + code;
         }else {
-            logger.info("Link retrieved {}", verifiedLink.getCode());
+            logger.info("Link retrieved {} originalUrl={}", verifiedLink.getCode(),verifiedLink.getOriginalUrl());
             return awsUrl + verifiedLink.getCode();
         }
     }
 
     public String findByCode(String code){
+        logger.info("Searching for code");
         String cacheKey = "short:url:" + code;
         try{
             String cachedUrl = redisTemplate.opsForValue().get(cacheKey);

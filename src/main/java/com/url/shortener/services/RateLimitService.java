@@ -21,7 +21,7 @@ public class RateLimitService {
             Long count = redisTemplate.opsForValue().increment(cacheKey);
 
             if (count != null && count == 1) {
-                redisTemplate.expire(cacheKey, Duration.ofMinutes(1));
+                redisTemplate.expire(cacheKey, Duration.ofHours(1));
             }
 
             return count != null && count <= 10;
